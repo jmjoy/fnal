@@ -1,0 +1,2 @@
+# fnal
+Go functional library.
