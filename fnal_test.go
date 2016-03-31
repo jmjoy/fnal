@@ -9,10 +9,14 @@ var (
 	testSlice       = []int{1, 2, 3}
 	testMapSlice    = []int{2, 3, 4}
 	testFilterSlice = []int{2, 3}
+	testFoldlSlice  = 0 - 1 - 2 - 3
+	testFoldrSlice  = 0 - 3 - 2 - 1
 
 	testMap       = map[string]string{"A": "A0", "B": "B0"}
 	testMapMap    = map[string]string{"A": "A0A", "B": "B0B"}
 	testFilterMap = map[string]string{"A": "A0"}
+	testFoldlMap  = 0 + len("A") + len("A0") + len("B") + len("B0")
+	testFoldrMap  = 0 + len("A") + len("A0") + len("B") + len("B0")
 )
 
 func sliceMapFunc(i interface{}) interface{} {
@@ -37,11 +41,20 @@ func mapFilterFunc(i interface{}) bool {
 }
 
 func sliceFoldlFunc(acc interface{}, i interface{}) interface{} {
-	return acc - i
+	return acc.(int) - i.(int)
 }
 
 func mapFoldlFunc(acc interface{}, i interface{}) interface{} {
-	return nil
+	entry := i.(MapEntry)
+	return acc.(int) + len(entry.Key.(string)) + len(entry.Value.(string))
+}
+
+func sliceFoldrFunc(i interface{}, acc interface{}) interface{} {
+	return sliceFoldlFunc(acc, i)
+}
+
+func mapFoldrFunc(i interface{}, acc interface{}) interface{} {
+	return mapFoldlFunc(acc, i)
 }
 
 func TestMap(t *testing.T) {
@@ -66,5 +79,27 @@ func TestMap(t *testing.T) {
 	if !reflect.DeepEqual(rt, testFilterMap) {
 		t.Log(rt)
 		t.Fatal("Filter error")
+	}
+
+	rt = Foldl(testSlice, 0, sliceFoldlFunc)
+	if !reflect.DeepEqual(rt, testFoldlSlice) {
+		t.Log(rt)
+		t.Fatal("Foldl error")
+	}
+	rt = Foldl(testMap, 0, mapFoldlFunc)
+	if !reflect.DeepEqual(rt, testFoldlMap) {
+		t.Log(rt)
+		t.Fatal("Foldl error")
+	}
+
+	rt = Foldr(testSlice, 0, sliceFoldrFunc)
+	if !reflect.DeepEqual(rt, testFoldrSlice) {
+		t.Log(rt)
+		t.Fatal("Foldr error")
+	}
+	rt = Foldr(testMap, 0, mapFoldrFunc)
+	if !reflect.DeepEqual(rt, testFoldrMap) {
+		t.Log(rt)
+		t.Fatal("Foldr error")
 	}
 }
