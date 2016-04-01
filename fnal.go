@@ -8,10 +8,10 @@ import (
 const ERR_UNTRAVERSABLE_TYPE = "The type of sequence can't be traversed: %s."
 
 type Traversable interface {
-	current() interface{}
-	next()
-	rewine()
-	valid() bool
+	Current() interface{}
+	Next()
+	Rewine()
+	Valid() bool
 }
 
 type MapEntry struct {
@@ -27,28 +27,73 @@ func Map(seq interface{}, fn func(interface{}) interface{}) interface{} {
 	switch kind {
 	case reflect.Slice:
 		length := value.Len()
-		slice := reflect.MakeSlice(typ, 0, length)
+		var appendable reflect.Value
+		var isMapEntry bool
 		for i := 0; i < length; i++ {
 			item := fn(value.Index(i).Interface())
-			slice = reflect.Append(slice, reflect.ValueOf(item))
+			if !appendable.IsValid() {
+				var entry MapEntry
+				entry, isMapEntry = item.(MapEntry)
+				if isMapEntry {
+					mapType := reflect.MapOf(
+						reflect.TypeOf(entry.Key),
+						reflect.TypeOf(entry.Value),
+					)
+					appendable = reflect.MakeMap(mapType)
+				} else {
+					appendable = reflect.MakeSlice(
+						reflect.SliceOf(reflect.TypeOf(item)), 0, length,
+					)
+				}
+			}
+			if isMapEntry {
+				entry := item.(MapEntry)
+				appendable.SetMapIndex(
+					reflect.ValueOf(entry.Key),
+					reflect.ValueOf(entry.Value),
+				)
+			} else {
+				appendable = reflect.Append(appendable, reflect.ValueOf(item))
+			}
 		}
-		return slice.Interface()
+		return appendable.Interface()
 
 	case reflect.Map:
 		keys := value.MapKeys()
-		m := reflect.MakeMap(typ)
+		length := len(keys)
+		var appendable reflect.Value
+		var isMapEntry bool
 		for i := range keys {
-			entry := fn(MapEntry{
+			item := fn(MapEntry{
 				Key:   keys[i].Interface(),
 				Value: value.MapIndex(keys[i]).Interface(),
-			}).(MapEntry)
-
-			m.SetMapIndex(
-				reflect.ValueOf(entry.Key),
-				reflect.ValueOf(entry.Value),
-			)
+			})
+			if !appendable.IsValid() {
+				var entry MapEntry
+				entry, isMapEntry = item.(MapEntry)
+				if isMapEntry {
+					mapType := reflect.MapOf(
+						reflect.TypeOf(entry.Key),
+						reflect.TypeOf(entry.Value),
+					)
+					appendable = reflect.MakeMap(mapType)
+				} else {
+					appendable = reflect.MakeSlice(
+						reflect.SliceOf(reflect.TypeOf(item)), 0, length,
+					)
+				}
+			}
+			if isMapEntry {
+				entry := item.(MapEntry)
+				appendable.SetMapIndex(
+					reflect.ValueOf(entry.Key),
+					reflect.ValueOf(entry.Value),
+				)
+			} else {
+				appendable = reflect.Append(appendable, reflect.ValueOf(item))
+			}
 		}
-		return m.Interface()
+		return appendable.Interface()
 
 	default:
 		panic(fmt.Sprintf(ERR_UNTRAVERSABLE_TYPE, typ))
